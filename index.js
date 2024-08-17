@@ -31,7 +31,7 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
-    const products = client.db("E-Store").collection("products");
+    const productsCollection = client.db("E-Store").collection("products");
 
     // app.get("/products", async (req, res) => {
     //   const result = await products.find().toArray();
@@ -39,60 +39,95 @@ async function run() {
     // });
 
     // all verified property by query
+
     app.get("/products", async (req, res) => {
-      const page = parseInt(req.query.page) - 1;
-      const size = parseInt(req.query.size);
-      const search = req.query.search;
-      const maxPrice = parseInt(req.query.maxPrice);
-      const minPrice = parseInt(req.query.minPrice);
-
-      const sortField = req.query.sortField || "price"; // Default sort field
-      const sortOrder = req.query.sortOrder === "desc" ? -1 : 1; // Default ascending
-
+      let {
+        search,
+        page,
+        size,
+        sortField,
+        sortOrder,
+        brand,
+        category,
+        minPrice,
+        maxPrice,
+      } = req.query;
+      const limit = size;
       let query = {};
-
-      if (search)
-        query = {
-          title: { $regex: search, $options: "i" },
-        };
-
-      if (maxPrice > 0 && minPrice > 0) {
-        query = {
-          minimumPrice: { $gte: minPrice },
-          maximumPrice: { $lte: maxPrice },
-        };
+      // Search by product name
+      if (search) {
+        query.title = { $regex: search, $options: "i" }; // Case-insensitive search
       }
-      const result = await products
+
+      // Filter by brand name
+      if (brand) {
+        query.brand = brand;
+      }
+
+      // Filter by category name
+      if (category) {
+        query.category = category;
+      }
+
+      // Filter by price range
+      if (minPrice || maxPrice) {
+        query.price = {};
+        if (minPrice) query.price.$gte = parseFloat(minPrice);
+        if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+      }
+
+      let sort = {};
+      if (sortOrder) {
+        if (sortOrder === "asc") {
+          sort.price = 1;
+        } else if (sortOrder === "desc") {
+          sort.price = -1;
+        } else if (sortOrder === "DateDesc") {
+          sort.date = -1;
+        }
+      }
+
+      const skip = (page - 1) * limit;
+      const products = await productsCollection
         .find(query)
-        .sort({ [sortField]: sortOrder })
-        .skip(page * size)
-        .limit(size)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
         .toArray();
-      res.send(result);
+
+      // Get the total number of products for pagination
+      const totalProducts = await productsCollection.countDocuments(query);
+
+      res.status(200).json({
+        totalProducts,
+        totalPages: Math.ceil(totalProducts / limit),
+        currentPage: parseInt(page),
+        products,
+      });
     });
 
     // Get  count for pagination
     // Get  count for pagination
-    app.get("/count-properties", async (req, res) => {
-      const search = req.query.search;
-      const maxPrice = parseInt(req.query.maxPrice);
-      const minPrice = parseInt(req.query.minPrice);
-      let query = {};
-      if (search)
-        query = {
-          title: { $regex: search, $options: "i" },
-        };
-      if (maxPrice > 0 && minPrice > 0) {
-        query = {
-          minimumPrice: { $gte: minPrice },
-          maximumPrice: { $lte: maxPrice },
-        };
-      }
+    // app.get("/count-products", async (req, res) => {
+    //   const search = req.query.search;
+    //   const maxPrice = parseInt(req.query.maxPrice);
+    //   const minPrice = parseInt(req.query.minPrice);
+    //   let query = {};
+    //   if (search)
+    //     query = {
+    //       title: { $regex: search, $options: "i" },
+    //     };
+    //   // Filter by price range
+    //   if (minPrice || maxPrice) {
+    //     query.price = {};
+    //     if (minPrice) query.price.$gte = parseFloat(minPrice);
+    //     if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+    //   }
 
-      const count = await products.countDocuments(query);
-      console.log(count);
-      res.send({ count });
-    });
+    //   const count = await products.countDocuments(query);
+    //   console.log(count);
+    //   res.send({ count });
+    // });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
