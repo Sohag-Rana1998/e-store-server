@@ -33,9 +33,65 @@ async function run() {
     // Send a ping to confirm a successful connection
     const products = client.db("E-Store").collection("products");
 
+    // app.get("/products", async (req, res) => {
+    //   const result = await products.find().toArray();
+    //   res.send(result);
+    // });
+
+    // all verified property by query
     app.get("/products", async (req, res) => {
-      const result = await products.find().toArray();
+      const page = parseInt(req.query.page) - 1;
+      const size = parseInt(req.query.size);
+      const search = req.query.search;
+      const maxPrice = parseInt(req.query.maxPrice);
+      const minPrice = parseInt(req.query.minPrice);
+
+      const sortField = req.query.sortField || "price"; // Default sort field
+      const sortOrder = req.query.sortOrder === "desc" ? -1 : 1; // Default ascending
+
+      let query = {};
+
+      if (search)
+        query = {
+          title: { $regex: search, $options: "i" },
+        };
+
+      if (maxPrice > 0 && minPrice > 0) {
+        query = {
+          minimumPrice: { $gte: minPrice },
+          maximumPrice: { $lte: maxPrice },
+        };
+      }
+      const result = await products
+        .find(query)
+        .sort({ [sortField]: sortOrder })
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
+    });
+
+    // Get  count for pagination
+    // Get  count for pagination
+    app.get("/count-properties", async (req, res) => {
+      const search = req.query.search;
+      const maxPrice = parseInt(req.query.maxPrice);
+      const minPrice = parseInt(req.query.minPrice);
+      let query = {};
+      if (search)
+        query = {
+          title: { $regex: search, $options: "i" },
+        };
+      if (maxPrice > 0 && minPrice > 0) {
+        query = {
+          minimumPrice: { $gte: minPrice },
+          maximumPrice: { $lte: maxPrice },
+        };
+      }
+
+      const count = await products.countDocuments(query);
+      console.log(count);
+      res.send({ count });
     });
 
     await client.db("admin").command({ ping: 1 });
