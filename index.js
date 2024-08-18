@@ -36,8 +36,8 @@ async function run() {
     app.get("/products", async (req, res) => {
       let {
         search,
-        page, // Default to page 1 if not provided
-        size, // Default to 10 items per page if not provided
+        page,
+        size,
         sortOrder,
         brand,
         category,
