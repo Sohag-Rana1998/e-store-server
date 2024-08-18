@@ -14,7 +14,7 @@ app.use(
   })
 );
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.iulixph.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -108,30 +108,16 @@ async function run() {
       }
     });
 
-    // Get  count for pagination
-    // Get  count for pagination
-    // app.get("/count-products", async (req, res) => {
-    //   const search = req.query.search;
-    //   const maxPrice = parseInt(req.query.maxPrice);
-    //   const minPrice = parseInt(req.query.minPrice);
-    //   let query = {};
-    //   if (search)
-    //     query = {
-    //       title: { $regex: search, $options: "i" },
-    //     };
-    //   // Filter by price range
-    //   if (minPrice || maxPrice) {
-    //     query.price = {};
-    //     if (minPrice) query.price.$gte = parseFloat(minPrice);
-    //     if (maxPrice) query.price.$lte = parseFloat(maxPrice);
-    //   }
+    app.get("/details/:id", async (req, res) => {
+      const id = req.params.id;
 
-    //   const count = await products.countDocuments(query);
-    //   console.log(count);
-    //   res.send({ count });
-    // });
+      const query = {
+        _id: new ObjectId(id),
+      };
+      const result = await productsCollection.findOne(query);
+      res.send(result);
+    });
 
-    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
