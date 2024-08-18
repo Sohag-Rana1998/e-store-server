@@ -10,7 +10,7 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://e-store-by-sohag.netlify.app"],
   })
 );
 
@@ -29,42 +29,38 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
     const productsCollection = client.db("E-Store").collection("products");
-
-    // app.get("/products", async (req, res) => {
-    //   const result = await products.find().toArray();
-    //   res.send(result);
-    // });
-
-    // all verified property by query
 
     app.get("/products", async (req, res) => {
       let {
         search,
-        page,
-        size,
-        sortField,
+        page, // Default to page 1 if not provided
+        size, // Default to 10 items per page if not provided
         sortOrder,
         brand,
         category,
         minPrice,
         maxPrice,
       } = req.query;
-      const limit = size;
+
+      const limit = parseInt(size); // Ensure limit is a number
+      const skip = (parseInt(page) - 1) * limit; // Calculate how many items to skip
+
       let query = {};
-      // Search by product name
+
+      // Search by product
       if (search) {
         query.title = { $regex: search, $options: "i" }; // Case-insensitive search
       }
 
-      // Filter by brand name
+      // Filter by brand
       if (brand) {
         query.brand = brand;
       }
 
-      // Filter by category name
+      // Filter by category
       if (category) {
         query.category = category;
       }
@@ -76,6 +72,7 @@ async function run() {
         if (maxPrice) query.price.$lte = parseFloat(maxPrice);
       }
 
+      // Sort options
       let sort = {};
       if (sortOrder) {
         if (sortOrder === "asc") {
@@ -87,23 +84,28 @@ async function run() {
         }
       }
 
-      const skip = (page - 1) * limit;
-      const products = await productsCollection
-        .find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(parseInt(limit))
-        .toArray();
+      try {
+        const products = await productsCollection
+          .find(query)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .toArray();
 
-      // Get the total number of products for pagination
-      const totalProducts = await productsCollection.countDocuments(query);
+        // Get the total number of products for pagination
+        const totalProducts = await productsCollection.countDocuments(query);
 
-      res.status(200).json({
-        totalProducts,
-        totalPages: Math.ceil(totalProducts / limit),
-        currentPage: parseInt(page),
-        products,
-      });
+        res.status(200).json({
+          totalProducts,
+          totalPages: Math.ceil(totalProducts / limit),
+          currentPage: parseInt(page),
+          products,
+        });
+      } catch (error) {
+        res
+          .status(500)
+          .json({ error: "An error occurred while fetching products" });
+      }
     });
 
     // Get  count for pagination
@@ -129,7 +131,7 @@ async function run() {
     //   res.send({ count });
     // });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
